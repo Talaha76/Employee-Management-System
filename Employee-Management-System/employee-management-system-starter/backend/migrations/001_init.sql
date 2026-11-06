@@ -1,0 +1,57 @@
+CREATE TABLE departments (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL UNIQUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE users (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('ADMIN','HR_MANAGER','VIEWER') NOT NULL DEFAULT 'VIEWER',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE employees (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  employee_code VARCHAR(40) NOT NULL UNIQUE,
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  job_title VARCHAR(160) NOT NULL,
+  department_id BIGINT UNSIGNED NOT NULL,
+  hire_date DATE NOT NULL,
+  employment_status ENUM('ACTIVE','ON_LEAVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_employee_department FOREIGN KEY (department_id) REFERENCES departments(id),
+  INDEX idx_employee_name (last_name, first_name),
+  INDEX idx_employee_department (department_id),
+  INDEX idx_employee_status (employment_status)
+);
+CREATE TABLE outbox_events (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id CHAR(36) NOT NULL UNIQUE,
+  topic VARCHAR(120) NOT NULL,
+  event_key VARCHAR(100) NOT NULL,
+  payload JSON NOT NULL,
+  status ENUM('PENDING','PROCESSING','PUBLISHED') NOT NULL DEFAULT 'PENDING',
+  attempt_count INT UNSIGNED NOT NULL DEFAULT 0,
+  next_attempt_at TIMESTAMP NULL DEFAULT NULL,
+  published_at TIMESTAMP NULL DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_outbox_pending (status, next_attempt_at, id)
+);
+CREATE TABLE audit_logs (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id CHAR(36) NOT NULL UNIQUE,
+  event_type VARCHAR(90) NOT NULL,
+  employee_id BIGINT UNSIGNED NULL,
+  actor_user_id BIGINT UNSIGNED NULL,
+  summary JSON NOT NULL,
+  occurred_at TIMESTAMP NOT NULL,
+  consumed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_audit_employee_time (employee_id, occurred_at),
+  CONSTRAINT fk_audit_employee FOREIGN KEY (employee_id) REFERENCES employees(id),
+  CONSTRAINT fk_audit_actor FOREIGN KEY (actor_user_id) REFERENCES users(id)
+);
